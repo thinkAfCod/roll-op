@@ -2,12 +2,15 @@
 This module defines functions related to spinning a devnet L1 node, and deploying L1 contracts
 on an L1 blockchain (for now only devnet, but in the future, any kind of L1).
 """
-
 import os
 import pathlib
 import shutil
+import subprocess
 import sys
+import datetime
+import time
 
+import l2
 import libroll as lib
 from config import Config
 from processes import PROCESS_MGR
@@ -22,6 +25,9 @@ def deploy_devnet_l1(config: Config):
     """
     os.makedirs(config.paths.gen_dir, exist_ok=True)
 
+    pre_devnet(config)
+    # in new version there should generate deploy_config json file first
+    generate_devnet_l1_allocs(config)
     generate_devnet_l1_genesis(config)
     start_devnet_l1_node(config)
     print("Devnet L1 deployment is complete! L1 node is running.")
@@ -29,8 +35,57 @@ def deploy_devnet_l1(config: Config):
 
 ####################################################################################################
 
-GENESIS_TMPL = {}
+def pre_devnet(config: Config):
+    """
+    Generate the L1 genesis file (simply copies the template).
+    """
+    try:
+        print("Pre devnet")
+        lib.run(
+            "pre-devnet",
+            ["bash", "-c", "'make pre-devnet'"],
+            cwd=config.paths.monorepo_dir)
+    except Exception as err:
+        raise lib.extend_exception(err, prefix="Failed to pre devnet: ")
 
+
+####################################################################################################
+
+def init_devnet_l1_deploy_config(config: Config, update_timestamp=False):
+    """
+    Init devnet L1 deploy config.
+    """
+    print("Init devnet l1 deploy config")
+    deploy_config = lib.read_json_file(config.paths.deploy_config_template_path)
+    if update_timestamp:
+        deploy_config['l1GenesisBlockTimestamp'] = '{:#x}'.format(int(time.time()))
+    lib.write_json_file(config.paths.deploy_config_template_path_source, deploy_config)
+
+
+####################################################################################################
+
+def generate_devnet_l1_allocs(config: Config):
+    """
+    Generate the L1 allocs file.
+    """
+    if os.path.exists(config.paths.l1_allocs_path):
+        print("L1 allocs already generated.")
+    else:
+        print("Generating L1 allocs.")
+        geth = start_devnet_l1_temp_node(config)
+        try:
+            l2.generate_deploy_config(config)
+            l2.deploy_l1_contracts(config)
+            data = lib.debug_dumpBlock(f"127.0.0.1:{config.l1_rpc_listen_port}")
+            lib.write_json_file(config.paths.l1_allocs_path, lib.read_json(data)['result'])
+            pass
+        except Exception as err:
+            raise lib.extend_exception(err, prefix="Failed to generate L1 allocs: ")
+        finally:
+            geth.terminate()
+
+
+####################################################################################################
 
 def generate_devnet_l1_genesis(config: Config):
     """
@@ -39,15 +94,33 @@ def generate_devnet_l1_genesis(config: Config):
     if os.path.exists(config.paths.l1_genesis_path):
         print("L1 genesis already generated.")
     else:
-        print("Generating L1 genesis.")
         try:
-            global GENESIS_TMPL  # overriden by exec below
-            with open("optimism/bedrock-devnet/devnet/genesis.py") as f:
-                exec(f.read(), globals(), globals())
-            GENESIS_TMPL["config"]["chainId"] = config.l1_chain_id
-            lib.write_json_file(config.paths.l1_genesis_path, GENESIS_TMPL)
+            print("Generating L1 genesis.")
+            lib.run(
+                "generating L1 genesis",
+                ["go", "run", "cmd/main.go", "genesis", "l1",
+                 f"--deploy-config={config.deploy_config_path}",
+                 f"--l1-allocs={config.paths.l1_allocs_path}"
+                 f"--l1-deployments={config.paths.addresses_json_path}",
+                 f"--outfile.l1={config.paths.l1_genesis_path}"],
+                cwd=config.paths.op_node_dir)
+            l2.generate_deploy_config(config)
+            pass
         except Exception as err:
             raise lib.extend_exception(err, prefix="Failed to generate L1 genesis: ")
+
+
+####################################################################################################
+
+def start_devnet_l1_temp_node(config: Config):
+    print("start a ")
+    geth = subprocess.Popen([
+        'geth', '--dev', '--chain-id', f"{config.l1_chain_id}", '--http', '--http.api', 'eth,debug',
+        '--verbosity', '4', '--gcmode', 'archive', '--dev.gaslimit', '30000000',
+        '--rpc.allow-unprotected-txs'
+    ])
+    lib.wait_for_rpc_server("127.0.0.1", config.l1_rpc_listen_port)
+    return geth
 
 
 ####################################################################################################
@@ -149,7 +222,8 @@ def start_devnet_l1_node(config: Config):
             # authenticated RPC), so we restrict access to localhost only (authrpc can't be turned
             # off), and don't specify the JWT secret (`--authrpc.jwtsecret=jwt_secret_path`) which
             # causes a random secret to be created in `config.l1_data_dir/geth/jwtsecret`.
-            "--authrpc.vhosts=127.0.0.1",
+            "--authrpc.vhosts=*",
+            f"--authrpc.jwtsecret={config.jwt_secret_path}",
 
             # Metrics options
             *([] if not config.l1_metrics else [

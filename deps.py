@@ -265,7 +265,7 @@ def cmd_with_node(command: str) -> str:
 
 ####################################################################################################
 
-NODE_VERSION = "v16.16.0"
+NODE_VERSION = "v20.9.0"
 """Full node of the node version required by the optimism repository."""
 
 NVM_VERSION = "v0.39.4"
@@ -409,10 +409,10 @@ def install_foundry():
 
 ####################################################################################################
 
-MIN_GETH_VERSION = "1.12.0"
+MIN_GETH_VERSION = "1.13.0"
 """Minimum supported geth version."""
 
-INSTALL_GETH_VERSION = "1.12.2"
+INSTALL_GETH_VERSION = "1.13.4"
 """Version of geth to install if not found."""
 
 
@@ -454,6 +454,9 @@ def install_geth():
     """
     descr = "install geth"
     os.makedirs("bin", exist_ok=True)
+    if os.path.exists("./bin/geth"):
+        print(f"Successfully installed geth {INSTALL_GETH_VERSION} as ./bin/geth")
+        return
     osys = get_valid_os("geth")
     arch = get_valid_arch("geth")
     if osys == "darwin" and arch == "arm64":

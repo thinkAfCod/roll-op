@@ -221,6 +221,14 @@ def ask_yes_no(question: str) -> bool:
         else:
             print("Invalid response. Please enter 'yes' or 'no'.")
 
+####################################################################################################
+
+def read_json(data: str) -> dict:
+    """
+    Reads a JSON str and returns the parsed contents.
+    """
+    import json
+    return json.loads(data)
 
 ####################################################################################################
 
@@ -235,7 +243,7 @@ def read_json_file(file_path: str) -> dict:
 
 ####################################################################################################
 
-def write_json_file(file_path: str, data: dict):
+def write_json_file(file_path, data):
     """
     Writes a JSON file with the given data.
     """
@@ -429,3 +437,30 @@ def wait_for_rpc_server(address: str, port: int, retries: int = 5, wait_secs=3):
     raise Exception(f"Timed out waiting for {url}")
 
 ####################################################################################################
+
+def json_rpc_call(url: str, body: str):
+    headers = {"Content-type": "application/json"}
+    conn = http.client.HTTPConnection(url)
+    try:
+        conn.request("POST", "/", body, headers)
+        body = conn.getresponse().read().decode()
+        return body
+    finally:
+        conn.close()
+
+####################################################################################################
+
+def eth_accounts(url):
+    body = '{"id":2, "jsonrpc":"2.0", "method": "eth_accounts", "params":[]}'
+    print(f"Fetch eth_accounts {url}")
+    return json_rpc_call(url, body)
+
+####################################################################################################
+
+def debug_dumpBlock(url):
+    body = '{"id":3, "jsonrpc":"2.0", "method": "debug_dumpBlock", "params":["latest"]}'
+    print(f"Fetch debug_dumpBlock {url}")
+    return json_rpc_call(url, body)
+
+####################################################################################################
+

@@ -35,7 +35,7 @@ def setup_optimism_repo():
     github_url = "https://github.com/ethereum-optimism/optimism.git"
     # This is the earliest commit with functional devnet scripts
     # on top of "op-node/v1.1.1" tag release.
-    git_tag = "7168db67c5b421975fef2a090aa6e6ee4e3ff298"
+    git_tag = "74ff044a9869e440aa270b65681182950576004e"
 
     if os.path.isfile("optimism"):
         raise Exception("Error: 'optimism' exists as a file and not a directory.")
@@ -76,7 +76,7 @@ def setup_op_geth_repo():
     Clone the op-geth repository and build it.
     """
     github_url = "https://github.com/ethereum-optimism/op-geth.git"
-    git_tag = "v1.101106.0"
+    git_tag = "v1.101304.1"
 
     if os.path.isfile("op-geth"):
         raise Exception("Error: 'op-geth' exists as a file and not a directory.")

@@ -28,7 +28,7 @@ class OPPaths:
         # === Existing Files ===
 
         self.deploy_config_template_path = pjoin(
-            self.contracts_dir, "deploy-config", "devnetL1.json.tmpl")
+            self.contracts_dir, "deploy-config", "devnetL1-template.json")
         """Template for the deploy configuration file."""
         # Note: this was added compared to the original Optimism logic, which edited the
         # devnetL1.json file in place. Instead, we create this template from the original the first
@@ -65,6 +65,9 @@ class OPPaths:
         """
 
         # === Generated Files — L1 Devnet ===
+
+        self.l1_allocs_path = pjoin(self.gen_dir, "allocs-l1.json")
+        """Devnet L1 allocs file path."""
 
         self.l1_genesis_path = pjoin(self.gen_dir, "genesis-l1.json")
         """Devnet L1 genesis file path."""

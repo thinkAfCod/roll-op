@@ -209,6 +209,24 @@ def deploy_l1_contracts(config: Config):
         print("L1 contracts already deployed.")
         return
 
+    data = lib.eth_accounts(f"127.0.0.1:{config.l1_rpc_listen_port}")
+    print(f"eth_accounts: {data}")
+    account = lib.read_json(data)['result'][0]
+
+    print(f"send some ether to the create2 deployer account: {account}")
+    lib.run(
+        f"send some ether to the create2 deployer account: {account}",
+        ["cast", "send", f"--from {account}", f"--rpc-url {config.l1_rpc}", "--unlocked",
+         f"--value 1ether", "0x3fAB184622Dc19b6109349B94811493BF2a45362"],
+        cwd=config.paths.contracts_dir)
+
+    print("deploy the create2 deployer")
+    lib.run(
+        "deploy the create2 deployer",
+        ["cast", "publish", f"--rpc-url {config.l1_rpc}",
+         "0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222"],
+        cwd=config.paths.contracts_dir)
+
     deploy_script = "scripts/Deploy.s.sol:Deploy"
 
     env = {**os.environ,
@@ -220,21 +238,20 @@ def deploy_l1_contracts(config: Config):
     slow = "--slow" if config.deploy_slowly else ""
     lib.run_roll_log(
         "deploy contracts",
-        f"forge script {deploy_script} --private-key {config.contract_deployer_key} "
-        f"--gas-estimate-multiplier {config.l1_deployment_gas_multiplier} "
-        f"--rpc-url {config.l1_rpc} --broadcast {slow}",
+        f"forge script {deploy_script} --sender {account} "
+        f"--rpc-url {config.l1_rpc} --broadcast {slow} --unlocked",
         cwd=config.paths.contracts_dir,
         env=env,
         log_file=log_file)
 
     log_file = "logs/create_l1_artifacts.log"
-    print(f"Creating L1 deployment artifacts. Logging to {log_file}")
+    print(f"Syncing L1 deployment artifacts. Logging to {log_file}")
     lib.run_roll_log(
         "create L1 deployment artifacts",
-        f"forge script {deploy_script} --private-key {config.contract_deployer_key} "
+        f"forge script {deploy_script} "
         # Note: this is probably not required since we do not actually deploy anything here,
         # but I figure it doesn't hurt?
-        f"--gas-estimate-multiplier {config.l1_deployment_gas_multiplier} "
+        # f"--gas-estimate-multiplier {config.l1_deployment_gas_multiplier} "
         f"--sig 'sync()' --rpc-url {config.l1_rpc}",
         cwd=config.paths.contracts_dir,
         env=env,
